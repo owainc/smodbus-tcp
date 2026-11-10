@@ -10,6 +10,10 @@ on:
 permissions:
   contents: read
 
+defaults:
+  run:
+    shell: pwsh
+
 jobs:
   build-packages:
     name: Build packages
@@ -30,7 +34,6 @@ jobs:
         run: dotnet run --project tests/SmodbusTcp.AotSmoke/SmodbusTcp.AotSmoke.csproj --configuration Release
 
       - name: Pack libraries
-        shell: pwsh
         run: |
           $suffix = "ci.$env:GITHUB_RUN_NUMBER.$env:GITHUB_RUN_ATTEMPT"
           $projects = @(
@@ -67,7 +70,6 @@ jobs:
           dotnet-quality: preview
 
       - name: Publish framework-dependent samples
-        shell: pwsh
         run: |
           $published = 0
           foreach ($sample in Get-ChildItem samples -Directory) {
@@ -82,7 +84,14 @@ jobs:
           if ($published -eq 0) { throw 'No sample client or server projects found.' }
 
       - name: Archive portable samples
-        run: (cd artifacts/samples && zip -qr ../../samples-portable.zip .)
+        run: |
+          Push-Location artifacts/samples
+          try {
+            zip -qr ../../samples-portable.zip .
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          } finally {
+            Pop-Location
+          }
 
       - name: Upload portable samples
         uses: actions/upload-artifact@v7
@@ -116,17 +125,14 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          set -euo pipefail
-          dotnet nuget add source "https://nuget.pkg.github.com/${GITHUB_REPOSITORY_OWNER}/index.json" \
-            --name github --username "$GITHUB_REPOSITORY_OWNER" --password "$GITHUB_TOKEN" --store-password-in-clear-text
-          mapfile -t packages < <(find artifacts/packages -type f -name '*.nupkg')
-          if ((${#packages[@]} == 0)); then
-            echo "No NuGet packages found in artifacts/packages" >&2
-            exit 1
-          fi
-          for package in "${packages[@]}"; do
-            dotnet nuget push "$package" --source github --api-key "$GITHUB_TOKEN" --skip-duplicate
-          done
+          dotnet nuget add source "https://nuget.pkg.github.com/$env:GITHUB_REPOSITORY_OWNER/index.json" --name github --username $env:GITHUB_REPOSITORY_OWNER --password $env:GITHUB_TOKEN --store-password-in-clear-text
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $packages = @(Get-ChildItem artifacts/packages -Filter '*.nupkg' -File -Recurse)
+          if ($packages.Count -eq 0) { throw 'No NuGet packages found in artifacts/packages' }
+          foreach ($package in $packages) {
+            dotnet nuget push $package.FullName --source github --api-key $env:GITHUB_TOKEN --skip-duplicate
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
 
   native-aot:
     name: Build native samples (${{ matrix.rid }})
@@ -150,10 +156,12 @@ jobs:
 
       - name: Install Linux native build prerequisites
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y clang zlib1g-dev
+        run: |
+          sudo apt-get update
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          sudo apt-get install -y clang zlib1g-dev
 
       - name: Publish native sample servers
-        shell: pwsh
         run: |
           $published = 0
           foreach ($sample in Get-ChildItem samples -Directory) {
@@ -171,7 +179,6 @@ jobs:
 
       - name: Archive native sample servers (zip)
         if: runner.os == 'Windows'
-        shell: pwsh
         run: Compress-Archive -Path "artifacts/aot/*" -DestinationPath "samples-aot-${{ matrix.rid }}.zip"
 
       - name: Upload native sample servers
@@ -218,17 +225,20 @@ jobs:
 
       - name: Package release assets
         run: |
-          set -euo pipefail
-          mkdir -p dist
-          cp artifacts/nuget-packages/*.nupkg dist/
-          mv dist/samples-aot-linux-x64.tar.gz "dist/samples-aot-linux-x64-${GITHUB_REF_NAME}.tar.gz"
-          mv dist/samples-aot-win-x64.zip "dist/samples-aot-win-x64-${GITHUB_REF_NAME}.zip"
-          mv dist/samples-portable.zip "dist/samples-portable-${GITHUB_REF_NAME}.zip"
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          $packages = @(Get-ChildItem artifacts/nuget-packages -Filter '*.nupkg' -File)
+          if ($packages.Count -eq 0) { throw 'No NuGet packages found in artifacts/nuget-packages' }
+          $packages | Copy-Item -Destination dist
+          Move-Item dist/samples-aot-linux-x64.tar.gz "dist/samples-aot-linux-x64-$env:GITHUB_REF_NAME.tar.gz"
+          Move-Item dist/samples-aot-win-x64.zip "dist/samples-aot-win-x64-$env:GITHUB_REF_NAME.zip"
+          Move-Item dist/samples-portable.zip "dist/samples-portable-$env:GITHUB_REF_NAME.zip"
 
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" dist/* --generate-notes
+        run: |
+          $assets = @(Get-ChildItem dist -File | ForEach-Object { $_.FullName })
+          gh release create $env:GITHUB_REF_NAME --repo $env:GITHUB_REPOSITORY @assets --generate-notes
 
   publish-nuget:
     name: Publish packages to NuGet.org
@@ -261,12 +271,9 @@ jobs:
         env:
           NUGET_API_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
         run: |
-          set -euo pipefail
-          mapfile -t packages < <(find artifacts/packages -type f -name '*.nupkg')
-          if ((${#packages[@]} == 0)); then
-            echo "No NuGet packages found in artifacts/packages" >&2
-            exit 1
-          fi
-          for package in "${packages[@]}"; do
-            dotnet nuget push "$package" --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json --skip-duplicate
-          done
+          $packages = @(Get-ChildItem artifacts/packages -Filter '*.nupkg' -File -Recurse)
+          if ($packages.Count -eq 0) { throw 'No NuGet packages found in artifacts/packages' }
+          foreach ($package in $packages) {
+            dotnet nuget push $package.FullName --api-key $env:NUGET_API_KEY --source https://api.nuget.org/v3/index.json --skip-duplicate
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
