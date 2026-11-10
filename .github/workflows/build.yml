@@ -262,8 +262,8 @@ jobs:
           set -euo pipefail
           mkdir -p dist
           cp artifacts/nuget-packages/*.nupkg dist/
-          test -f dist/samples-aot-linux-x64.tar.gz
-          test -f dist/samples-aot-win-x64.zip
+          mv dist/samples-aot-linux-x64.tar.gz "dist/samples-aot-linux-x64-${GITHUB_REF_NAME}.tar.gz"
+          mv dist/samples-aot-win-x64.zip "dist/samples-aot-win-x64-${GITHUB_REF_NAME}.zip"
           mv dist/samples-portable.zip "dist/samples-portable-${GITHUB_REF_NAME}.zip"
 
       - name: Create GitHub release
