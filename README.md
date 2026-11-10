@@ -43,7 +43,7 @@ dotnet add package SmodbusTcp
 dotnet add package SmodbusTcp.Kestrel # optional
 ```
 
-Both packages target **.NET 11**. Pushing a `v*` release tag publishes both packages to nuget.org using NuGet trusted publishing. Configure a NuGet.org trusted-publishing policy for `owainc/smodbus-tcp` and the `build.yml` workflow, with scopes for both package IDs. Add the NuGet account username as the GitHub Actions secret `NUGET_USER`.
+Both packages target **.NET 11**.
 
 ## Quick start
 
