@@ -81,12 +81,15 @@ jobs:
           }
           if ($published -eq 0) { throw 'No sample client or server projects found.' }
 
+      - name: Archive portable samples
+        run: (cd artifacts/samples && zip -qr ../../samples-portable.zip .)
+
       - name: Upload portable samples
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
-          name: samples-portable
-          path: artifacts/samples/
+          path: samples-portable.zip
           if-no-files-found: error
+          archive: false
 
   publish-packages:
     name: Publish prereleases to GitHub Packages
@@ -236,8 +239,9 @@ jobs:
       - name: Download portable samples
         uses: actions/download-artifact@v8
         with:
-          name: samples-portable
-          path: artifacts/samples-portable
+          name: samples-portable.zip
+          path: dist
+          skip-decompress: true
 
       - name: Download Linux native samples
         uses: actions/download-artifact@v8
@@ -260,7 +264,7 @@ jobs:
           cp artifacts/nuget-packages/*.nupkg dist/
           test -f dist/samples-aot-linux-x64.tar.gz
           test -f dist/samples-aot-win-x64.zip
-          (cd artifacts/samples-portable && zip -qr "../../dist/samples-portable-${GITHUB_REF_NAME}.zip" .)
+          mv dist/samples-portable.zip "dist/samples-portable-${GITHUB_REF_NAME}.zip"
 
       - name: Create GitHub release
         env:
