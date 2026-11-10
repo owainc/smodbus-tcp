@@ -2,7 +2,7 @@ name: Build and package
 
 on:
   push:
-    branches: [master]
+    branches: [main]
     tags: ['v*']
   pull_request:
   workflow_dispatch:
@@ -90,7 +90,7 @@ jobs:
 
   publish-packages:
     name: Publish prereleases to GitHub Packages
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: build-packages
     runs-on: ubuntu-24.04
     permissions:
