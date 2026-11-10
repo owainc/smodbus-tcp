@@ -35,7 +35,7 @@ On Linux, publish on a Linux machine with `-r linux-x64` and run
 platform's native compiler/linker prerequisites. CI only runs the smoke test on the
 CLR with `dotnet run` in the `build-packages` job (no native compilation), so it
 covers the wire exchanges but not AOT/trim warnings. The Windows x64 native path has been
-verified locally with SDK `11.0.100-rc.3.26522.148`; other targets need their own run.
+verified locally with SDK `11.0.100`; other targets need their own run.
 
 The executable checks constructor injection, exact coil/register write and read
 replies, and an unsupported-function reply over raw TCP and Kestrel TCP, TLS and
