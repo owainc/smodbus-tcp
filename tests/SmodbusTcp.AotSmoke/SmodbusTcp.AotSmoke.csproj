@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net11.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <PublishAot>true</PublishAot>
+    <TrimmerSingleWarn>false</TrimmerSingleWarn>
+    <ILLinkTreatWarningsAsErrors>true</ILLinkTreatWarningsAsErrors>
+    <IlcTreatWarningsAsErrors>true</IlcTreatWarningsAsErrors>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/SmodbusTcp/SmodbusTcp.csproj"/>
+    <ProjectReference Include="../../src/SmodbusTcp.Kestrel/SmodbusTcp.Kestrel.csproj"/>
+    <!-- Analyze every library API, including APIs not exercised below. -->
+    <TrimmerRootAssembly Include="SmodbusTcp"/>
+    <TrimmerRootAssembly Include="SmodbusTcp.Kestrel"/>
+  </ItemGroup>
+</Project>

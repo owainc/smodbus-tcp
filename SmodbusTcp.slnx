@@ -1,0 +1,42 @@
+<Solution>
+  <Folder Name="/samples/">
+    <File Path="samples/README.md"/>
+  </Folder>
+  <Folder Name="/samples/interface-handler/">
+    <File Path="samples/interface-handler/README.md"/>
+    <Project Path="samples/interface-handler/server/server.csproj"/>
+  </Folder>
+  <Folder Name="/samples/certs/">
+    <File Path="samples/certs/client.crt"/>
+    <File Path="samples/certs/client.key"/>
+    <File Path="samples/certs/server.crt"/>
+    <File Path="samples/certs/server.key"/>
+  </Folder>
+  <Folder Name="/samples/kestrel-mtls/">
+    <Project Path="samples/kestrel-mtls/client/client.csproj"/>
+    <Project Path="samples/kestrel-mtls/server/server.csproj"/>
+  </Folder>
+  <Folder Name="/samples/kestrel-tls/">
+    <Project Path="samples/kestrel-tls/client/client.csproj"/>
+    <Project Path="samples/kestrel-tls/server/server.csproj"/>
+  </Folder>
+  <Folder Name="/samples/Modbus_POE_ETH_IO_8CH/">
+    <Project Path="samples/Modbus_POE_ETH_IO_8CH/client/client.csproj"/>
+    <Project Path="samples/Modbus_POE_ETH_IO_8CH/server/server.csproj"/>
+  </Folder>
+  <Folder Name="/samples/raw-tcp/">
+    <File Path="samples/minimal/README.md"/>
+    <Project Path="samples/minimal/client/client.csproj"/>
+    <Project Path="samples/minimal/server/server.csproj"/>
+  </Folder>
+  <Folder Name="/Solution Items/">
+    <File Path=".editorconfig"/>
+    <File Path="README.md"/>
+  </Folder>
+  <Folder Name="/Tests/">
+    <Project Path="tests/SmodbusTcp.AotSmoke/SmodbusTcp.AotSmoke.csproj"/>
+    <Project Path="tests/SmodbusTcp.Tests/SmodbusTcp.Tests.csproj"/>
+  </Folder>
+  <Project Path="src/SmodbusTcp.Kestrel/SmodbusTcp.Kestrel.csproj"/>
+  <Project Path="src/SmodbusTcp/SmodbusTcp.csproj"/>
+</Solution>

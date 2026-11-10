@@ -1,0 +1,12 @@
+<Project Sdk="MSTest.Sdk/4.1.0">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <UseVSTest>true</UseVSTest>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/SmodbusTcp/SmodbusTcp.csproj"/>
+    <ProjectReference Include="../../src/SmodbusTcp.Kestrel/SmodbusTcp.Kestrel.csproj"/>
+  </ItemGroup>
+</Project>

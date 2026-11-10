@@ -1,0 +1,194 @@
+name: Build and package
+
+on:
+  push:
+    branches: [master]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-packages:
+    name: Build packages
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 11.0.x
+          dotnet-quality: preview
+
+      - name: Test libraries
+        run: dotnet test tests/SmodbusTcp.Tests/SmodbusTcp.Tests.csproj --configuration Release
+
+      - name: Run AOT smoke test
+        run: dotnet run --project tests/SmodbusTcp.AotSmoke/SmodbusTcp.AotSmoke.csproj --configuration Release
+
+      - name: Pack libraries
+        shell: pwsh
+        run: |
+          $suffix = "ci.$env:GITHUB_RUN_NUMBER.$env:GITHUB_RUN_ATTEMPT"
+          $projects = @(
+            'src/SmodbusTcp/SmodbusTcp.csproj',
+            'src/SmodbusTcp.Kestrel/SmodbusTcp.Kestrel.csproj'
+          )
+          foreach ($project in $projects) {
+            dotnet pack $project --configuration Release --output artifacts/packages --version-suffix $suffix
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+
+      - name: Upload packages
+        uses: actions/upload-artifact@v7
+        with:
+          name: nuget-packages
+          path: artifacts/packages/*.nupkg
+          if-no-files-found: error
+
+  portable-samples:
+    name: Build portable samples
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 11.0.x
+          dotnet-quality: preview
+
+      - name: Publish framework-dependent samples
+        shell: pwsh
+        run: |
+          $samples = @('minimal', 'kestrel-tls', 'kestrel-mtls', 'Modbus_POE_ETH_IO_8CH', 'interface-handler')
+          foreach ($sample in $samples) {
+            $kinds = if ($sample -eq 'interface-handler') { @('server') } else { @('client', 'server') }
+            foreach ($kind in $kinds) {
+              dotnet publish "samples/$sample/$kind/$kind.csproj" --configuration Release --no-self-contained -p:UseAppHost=false --output "artifacts/samples/$sample/$kind"
+              if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            }
+          }
+
+      - name: Upload portable samples
+        uses: actions/upload-artifact@v6
+        with:
+          name: samples-portable
+          path: artifacts/samples/
+          if-no-files-found: error
+
+  publish-packages:
+    name: Publish prereleases to GitHub Packages
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    needs: build-packages
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 11.0.x
+          dotnet-quality: preview
+
+      - name: Download package artifacts
+        uses: actions/download-artifact@v7
+        with:
+          name: nuget-packages
+          path: artifacts/packages
+
+      - name: Publish packages to GitHub Packages
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          dotnet nuget add source "https://nuget.pkg.github.com/${GITHUB_REPOSITORY_OWNER}/index.json" \
+            --name github --username "$GITHUB_REPOSITORY_OWNER" --password "$GITHUB_TOKEN" --store-password-in-clear-text
+          mapfile -t packages < <(find artifacts/packages -type f -name '*.nupkg')
+          if ((${#packages[@]} == 0)); then
+            echo "No NuGet packages found in artifacts/packages" >&2
+            exit 1
+          fi
+          for package in "${packages[@]}"; do
+            dotnet nuget push "$package" --source github --api-key "$GITHUB_TOKEN" --skip-duplicate
+          done
+
+  native-aot:
+    name: Build native samples (${{ matrix.rid }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            rid: linux-x64
+          - os: windows-latest
+            rid: win-x64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 11.0.x
+          dotnet-quality: preview
+
+      - name: Install Linux native build prerequisites
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y clang zlib1g-dev
+
+      - name: Publish native sample servers
+        shell: pwsh
+        run: |
+          $samples = @('minimal', 'kestrel-tls', 'kestrel-mtls', 'Modbus_POE_ETH_IO_8CH', 'interface-handler')
+          foreach ($sample in $samples) {
+            dotnet publish "samples/$sample/server/server.csproj" --configuration Release --runtime "${{ matrix.rid }}" -p:PublishAot=true --output "artifacts/aot/$sample"
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+
+      - name: Archive native sample servers (tar.gz)
+        if: runner.os != 'Windows'
+        run: tar -czf "samples-aot-${{ matrix.rid }}.tar.gz" -C artifacts/aot .
+
+      - name: Archive native sample servers (zip)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: Compress-Archive -Path "artifacts/aot/*" -DestinationPath "samples-aot-${{ matrix.rid }}.zip"
+
+      - name: Upload native sample servers
+        uses: actions/upload-artifact@v7
+        with:
+          name: samples-aot-${{ matrix.rid }}
+          path: samples-aot-${{ matrix.rid }}.${{ runner.os == 'Windows' && 'zip' || 'tar.gz' }}
+          if-no-files-found: error
+          archive: false
+
+  release:
+    name: Create GitHub release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [build-packages, portable-samples, native-aot]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v7
+        with:
+          path: artifacts
+
+      - name: Package release assets
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          cp artifacts/nuget-packages/*.nupkg dist/
+          cp artifacts/samples-aot-*/*.tar.gz artifacts/samples-aot-*/*.zip dist/
+          (cd artifacts/samples-portable && zip -qr "../../dist/samples-portable-${GITHUB_REF_NAME}.zip" .)
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" dist/* --generate-notes
