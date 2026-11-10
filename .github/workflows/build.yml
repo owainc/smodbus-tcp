@@ -69,14 +69,17 @@ jobs:
       - name: Publish framework-dependent samples
         shell: pwsh
         run: |
-          $samples = @('minimal', 'kestrel-tls', 'kestrel-mtls', 'Modbus_POE_ETH_IO_8CH', 'interface-handler')
-          foreach ($sample in $samples) {
-            $kinds = if ($sample -eq 'interface-handler') { @('server') } else { @('client', 'server') }
-            foreach ($kind in $kinds) {
-              dotnet publish "samples/$sample/$kind/$kind.csproj" --configuration Release --no-self-contained -p:UseAppHost=false --output "artifacts/samples/$sample/$kind"
+          $published = 0
+          foreach ($sample in Get-ChildItem samples -Directory) {
+            foreach ($kind in @('client', 'server')) {
+              $project = Join-Path $sample.FullName "$kind/$kind.csproj"
+              if (-not (Test-Path $project -PathType Leaf)) { continue }
+              dotnet publish $project --configuration Release --no-self-contained -p:UseAppHost=false --output "artifacts/samples/$($sample.Name)/$kind"
               if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+              $published++
             }
           }
+          if ($published -eq 0) { throw 'No sample client or server projects found.' }
 
       - name: Upload portable samples
         uses: actions/upload-artifact@v6
@@ -190,11 +193,15 @@ jobs:
       - name: Publish native sample servers
         shell: pwsh
         run: |
-          $samples = @('minimal', 'kestrel-tls', 'kestrel-mtls', 'Modbus_POE_ETH_IO_8CH', 'interface-handler')
-          foreach ($sample in $samples) {
-            dotnet publish "samples/$sample/server/server.csproj" --configuration Release --runtime "${{ matrix.rid }}" -p:PublishAot=true --output "artifacts/aot/$sample"
+          $published = 0
+          foreach ($sample in Get-ChildItem samples -Directory) {
+            $project = Join-Path $sample.FullName 'server/server.csproj'
+            if (-not (Test-Path $project -PathType Leaf)) { continue }
+            dotnet publish $project --configuration Release --runtime "${{ matrix.rid }}" -p:PublishAot=true --output "artifacts/aot/$($sample.Name)"
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            $published++
           }
+          if ($published -eq 0) { throw 'No sample server projects found.' }
 
       - name: Archive native sample servers (tar.gz)
         if: runner.os != 'Windows'
