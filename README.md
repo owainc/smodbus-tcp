@@ -256,7 +256,7 @@ handle connection failures.
 
 | Sample                                                   | Shows                                                                           |
 |----------------------------------------------------------|---------------------------------------------------------------------------------|
-| [minimal](samples/minimal/README.md)                     | Raw TCP server and an NModbus client writing/reading a coil.                    |
+| [minimal](samples/minimal/README.md)                     | Raw TCP server and a client writing/reading a coil.                             |
 | [interface-handler](samples/interface-handler/README.md) | Direct `IModbusFunctionHandler` implementation using the shared helpers.        |
 | [kestrel-tls](samples/kestrel-tls/README.md)             | Modbus over TLS with Kestrel, with sample PEM certificates.                     |
 | [kestrel-mtls](samples/kestrel-mtls/README.md)           | Mutual TLS requiring a trusted client certificate.                              |
