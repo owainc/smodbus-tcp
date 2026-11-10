@@ -208,9 +208,9 @@ jobs:
       - name: Upload native sample servers
         uses: actions/upload-artifact@v7
         with:
-          name: samples-aot-${{ matrix.rid }}
           path: samples-aot-${{ matrix.rid }}.${{ runner.os == 'Windows' && 'zip' || 'tar.gz' }}
           if-no-files-found: error
+          archive: false
 
   release:
     name: Create GitHub release
@@ -220,17 +220,39 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Download build artifacts
-        uses: actions/download-artifact@v7
+      - name: Download package artifacts
+        uses: actions/download-artifact@v8
         with:
-          path: artifacts
+          name: nuget-packages
+          path: artifacts/nuget-packages
+
+      - name: Download portable samples
+        uses: actions/download-artifact@v8
+        with:
+          name: samples-portable
+          path: artifacts/samples-portable
+
+      - name: Download Linux native samples
+        uses: actions/download-artifact@v8
+        with:
+          name: samples-aot-linux-x64.tar.gz
+          path: dist
+          skip-decompress: true
+
+      - name: Download Windows native samples
+        uses: actions/download-artifact@v8
+        with:
+          name: samples-aot-win-x64.zip
+          path: dist
+          skip-decompress: true
 
       - name: Package release assets
         run: |
           set -euo pipefail
           mkdir -p dist
           cp artifacts/nuget-packages/*.nupkg dist/
-          cp artifacts/samples-aot-*/*.tar.gz artifacts/samples-aot-*/*.zip dist/
+          test -f dist/samples-aot-linux-x64.tar.gz
+          test -f dist/samples-aot-win-x64.zip
           (cd artifacts/samples-portable && zip -qr "../../dist/samples-portable-${GITHUB_REF_NAME}.zip" .)
 
       - name: Create GitHub release
