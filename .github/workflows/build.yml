@@ -211,7 +211,6 @@ jobs:
           name: samples-aot-${{ matrix.rid }}
           path: samples-aot-${{ matrix.rid }}.${{ runner.os == 'Windows' && 'zip' || 'tar.gz' }}
           if-no-files-found: error
-          archive: false
 
   release:
     name: Create GitHub release
