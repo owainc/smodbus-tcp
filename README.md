@@ -1,6 +1,7 @@
 # SmodbusTCP
 
 [![Build](https://github.com/owainc/smodbus/actions/workflows/build.yml/badge.svg)](https://github.com/owainc/smodbus/actions/workflows/build.yml)
+[![NuGet Version](https://img.shields.io/nuget/v/SmodbusTcp.svg?style=flat)](https://www.nuget.org/packages/SmodbusTcp/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 **A small, modular Modbus TCP server library for .NET.**
